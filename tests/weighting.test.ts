@@ -4,6 +4,26 @@ import { calculateWeights } from "../src/services/weighting.js";
 import type { Allocation } from "../src/types.js";
 
 describe("calculateWeights", () => {
+  it("returns an empty array when there are no allocations", () => {
+    expect(calculateWeights([])).toEqual([]);
+  });
+
+  it("handles a zero allocation without producing a non-finite result", () => {
+    const allocations: Allocation[] = [
+      { userId: "user_1", targetId: "Target Zero", amount: 0 },
+    ];
+
+    const [result] = calculateWeights(allocations);
+
+    expect(result).toEqual({
+      targetId: "Target Zero",
+      rawTotal: 0,
+      uniqueUserCount: 1,
+      weight: 0,
+    });
+    expect(Number.isFinite(result.weight)).toBe(true);
+  });
+
   it("calculates concentrated value from one contributor", () => {
     const allocations: Allocation[] = [
       { userId: "user_1", targetId: "Target A", amount: 10_000 },
@@ -59,5 +79,54 @@ describe("calculateWeights", () => {
       uniqueUserCount: 2,
       weight: 400,
     });
+  });
+
+  it("calculates multiple targets independently", () => {
+    const allocations: Allocation[] = [
+      { userId: "user_1", targetId: "Target A", amount: 25 },
+      { userId: "user_2", targetId: "Target A", amount: 25 },
+      { userId: "user_3", targetId: "Target B", amount: 100 },
+    ];
+
+    const results = calculateWeights(allocations);
+
+    expect(results).toEqual([
+      {
+        targetId: "Target A",
+        rawTotal: 50,
+        uniqueUserCount: 2,
+        weight: 100,
+      },
+      {
+        targetId: "Target B",
+        rawTotal: 100,
+        uniqueUserCount: 1,
+        weight: 100,
+      },
+    ]);
+  });
+
+  it("counts the same user independently across different targets", () => {
+    const allocations: Allocation[] = [
+      { userId: "shared_user", targetId: "Target A", amount: 16 },
+      { userId: "shared_user", targetId: "Target B", amount: 9 },
+    ];
+
+    const results = calculateWeights(allocations);
+
+    expect(results).toEqual([
+      {
+        targetId: "Target A",
+        rawTotal: 16,
+        uniqueUserCount: 1,
+        weight: 16,
+      },
+      {
+        targetId: "Target B",
+        rawTotal: 9,
+        uniqueUserCount: 1,
+        weight: 9,
+      },
+    ]);
   });
 });

@@ -92,6 +92,23 @@ describe("POST /api/weights", () => {
     });
   });
 
+  it("returns 400 when an allocation in the array is invalid", async () => {
+    const app = createApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/weights",
+      payload: [
+        { userId: "user_1", targetId: "Target A", amount: -1 },
+      ],
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "allocations[0].amount must be greater than or equal to zero.",
+    });
+  });
+
   it("returns an empty result for an empty allocation array", async () => {
     const app = createApp();
 
@@ -103,5 +120,35 @@ describe("POST /api/weights", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual([]);
+  });
+
+  it("calculates multiple targets independently", async () => {
+    const app = createApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/weights",
+      payload: [
+        { userId: "shared_user", targetId: "Target A", amount: 25 },
+        { userId: "user_2", targetId: "Target A", amount: 25 },
+        { userId: "shared_user", targetId: "Target B", amount: 100 },
+      ],
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual([
+      {
+        targetId: "Target A",
+        rawTotal: 50,
+        uniqueUserCount: 2,
+        weight: 100,
+      },
+      {
+        targetId: "Target B",
+        rawTotal: 100,
+        uniqueUserCount: 1,
+        weight: 100,
+      },
+    ]);
   });
 });
